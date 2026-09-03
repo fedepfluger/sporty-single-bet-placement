@@ -1,0 +1,44 @@
+name: smoke (manual)
+
+# On-demand run of the smoke gate, independent of the automatic one in
+# tests.yml (push/PR). Useful to re-check the deployed environment without
+# opening a pull request.
+on:
+  workflow_dispatch:
+
+concurrency:
+  # Same group as tests.yml: the suite mutates one shared balance per user id,
+  # so no run of any workflow may overlap another.
+  group: single-bet-suite-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      USER_ID: ${{ secrets.USER_ID }}
+      BASE_URL: ${{ vars.BASE_URL }}
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      HEADLESS: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: stable
+      - run: pip install -r requirements.txt
+      # `.env.example` carries every non-secret required value; the secrets
+      # and repository variables set above win over it.
+      - run: cp .env.example .env
+      - run: pytest -m smoke --reruns 1 --reruns-delay 2
+
+      - name: Publish the Allure results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-results-smoke
+          path: reports/allure-results
+          retention-days: 14

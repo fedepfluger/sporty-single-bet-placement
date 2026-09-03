@@ -1,0 +1,60 @@
+name: run by custom expression
+
+# Free-text pytest -m expression, for anything the dropdown in run-marker.yml
+# doesn't cover: combinations ("api and boundary"), negation ("regression and
+# not slow"), or a single test via -k semantics inside the same field
+# ("api and boundary" is a marker expression, not a -k expression - see
+# https://docs.pytest.org/en/stable/how-to/mark.html#custom-marker-and-command-line-option
+# for the grammar).
+on:
+  workflow_dispatch:
+    inputs:
+      marker_expression:
+        description: 'pytest -m expression, e.g. "api and not slow"'
+        required: true
+        type: string
+
+concurrency:
+  # Same group as tests.yml: the suite mutates one shared balance per user id,
+  # so no run of any workflow may overlap another.
+  group: single-bet-suite-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      USER_ID: ${{ secrets.USER_ID }}
+      BASE_URL: ${{ vars.BASE_URL }}
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      HEADLESS: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: stable
+      - run: pip install -r requirements.txt
+      # `.env.example` carries every non-secret required value; the secrets
+      # and repository variables set above win over it.
+      - run: cp .env.example .env
+
+      - name: Run pytest -m "${{ inputs.marker_expression }}"
+        env:
+          # Passed through env, not interpolated straight into the shell
+          # script: this field is free text from whoever triggers the run,
+          # and concatenating it directly into `run:` would let it break out
+          # of the intended argument and inject shell commands.
+          PYTEST_MARKER_EXPRESSION: ${{ inputs.marker_expression }}
+        run: pytest -m "$PYTEST_MARKER_EXPRESSION" --reruns 1 --reruns-delay 2
+
+      - name: Publish the Allure results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-results-custom
+          path: reports/allure-results
+          retention-days: 14

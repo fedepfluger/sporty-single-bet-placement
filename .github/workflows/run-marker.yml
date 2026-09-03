@@ -1,0 +1,68 @@
+name: run by marker
+
+# Pick one of the markers declared in pytest.ini from a dropdown - no typing,
+# no risk of a typo silently matching zero tests (--strict-markers would
+# still catch that, but the dropdown avoids it entirely).
+on:
+  workflow_dispatch:
+    inputs:
+      marker:
+        description: Marker to run
+        required: true
+        type: choice
+        default: smoke
+        options:
+          - smoke
+          - regression
+          - api
+          - ui
+          - e2e
+          - boundary
+          - negative
+          - security
+          - spec_gap
+          - concurrency
+          - slow
+
+concurrency:
+  # Same group as tests.yml: the suite mutates one shared balance per user id,
+  # so no run of any workflow may overlap another.
+  group: single-bet-suite-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      USER_ID: ${{ secrets.USER_ID }}
+      BASE_URL: ${{ vars.BASE_URL }}
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      HEADLESS: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: stable
+      - run: pip install -r requirements.txt
+      # `.env.example` carries every non-secret required value; the secrets
+      # and repository variables set above win over it.
+      - run: cp .env.example .env
+
+      - name: Run pytest -m ${{ inputs.marker }}
+        env:
+          # Passed through env, not interpolated straight into the shell
+          # script, so the value is never concatenated into `run:` as text.
+          PYTEST_MARKER: ${{ inputs.marker }}
+        run: pytest -m "$PYTEST_MARKER" --reruns 1 --reruns-delay 2
+
+      - name: Publish the Allure results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-results-${{ inputs.marker }}
+          path: reports/allure-results
+          retention-days: 14

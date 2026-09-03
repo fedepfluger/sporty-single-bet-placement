@@ -51,10 +51,16 @@ jobs:
           PYTEST_MARKER_EXPRESSION: ${{ inputs.marker_expression }}
         run: pytest -m "$PYTEST_MARKER_EXPRESSION" --reruns 1 --reruns-delay 2
 
-      - name: Publish the Allure results
+      - name: Generate the Allure single-file report
+        if: always()
+        run: |
+          npm install -g allure-commandline@2.43.0
+          allure generate reports/allure-results --single-file -o reports/allure-report --clean
+
+      - name: Publish the Allure report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: allure-results-custom
-          path: reports/allure-results
+          name: allure-report-custom
+          path: reports/allure-report/index.html
           retention-days: 14

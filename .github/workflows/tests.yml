@@ -57,10 +57,16 @@ jobs:
         if: matrix.suite == 'smoke' || github.event_name == 'schedule'
         run: pytest -m ${{ matrix.suite }} --reruns 1 --reruns-delay 2
 
-      - name: Publish the Allure results
-        if: always()
+      - name: Generate the Allure single-file report
+        if: always() && (matrix.suite == 'smoke' || github.event_name == 'schedule')
+        run: |
+          npm install -g allure-commandline@2.43.0
+          allure generate reports/allure-results --single-file -o reports/allure-report --clean
+
+      - name: Publish the Allure report
+        if: always() && (matrix.suite == 'smoke' || github.event_name == 'schedule')
         uses: actions/upload-artifact@v7
         with:
-          name: allure-results-${{ matrix.suite }}
-          path: reports/allure-results
+          name: allure-report-${{ matrix.suite }}
+          path: reports/allure-report/index.html
           retention-days: 14

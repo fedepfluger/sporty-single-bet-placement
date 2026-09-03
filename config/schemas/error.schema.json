@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Error envelope",
+  "description": "The specification does not pin the error body down. We assert only that a JSON object carrying a human-readable message is returned; see docs/03_strategy_and_recommendations.md.",
+  "type": "object",
+  "minProperties": 1,
+  "additionalProperties": true,
+  "anyOf": [
+    { "required": ["error"] },
+    { "required": ["message"] },
+    { "required": ["errors"] },
+    { "required": ["detail"] }
+  ]
+}

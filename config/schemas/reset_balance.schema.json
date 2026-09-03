@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "POST /api/reset-balance",
+  "type": "object",
+  "required": ["message", "balance", "currency"],
+  "additionalProperties": true,
+  "properties": {
+    "message": { "type": "string", "minLength": 1 },
+    "balance": { "type": "number", "minimum": 0 },
+    "currency": { "type": "string", "const": "EUR" }
+  }
+}

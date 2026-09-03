@@ -1,0 +1,67 @@
+# Run `pre-commit install` once; hooks then execute on every `git commit`.
+# `pre-commit run --all-files` reproduces exactly what CI enforces.
+default_language_version:
+  python: python3
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        args: ["--branch", "main", "--branch", "master"]
+
+  - repo: https://github.com/psf/black
+    rev: 26.5.1
+    hooks:
+      - id: black
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 9.0.1
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.5
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+
+  # Secret scanning: the last line of defence for the rule that no credential
+  # ever reaches the repository.
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: ^(\.secrets\.baseline|\.env\.example)$
+
+  - repo: local
+    hooks:
+      # A committed `.env` would leak the user id. Belt and braces alongside .gitignore.
+      - id: block-dotenv
+        name: refuse to commit a .env file
+        entry: .env must never be committed - keep secrets in your local environment or CI secret store
+        language: fail
+        files: ^\.env$
+
+      # Two pytest collections: they prove every test module still imports and
+      # parametrises, and that each test belongs to exactly one suite. A test in
+      # neither suite is never run by CI, which no ordinary pytest run reports.
+      - id: suite-markers
+        name: pytest collects cleanly and every test has one suite marker
+        entry: python scripts/check_test_markers.py
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-commit]

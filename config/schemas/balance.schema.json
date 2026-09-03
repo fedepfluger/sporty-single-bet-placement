@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GET /api/balance",
+  "type": "object",
+  "required": ["balance", "currency"],
+  "additionalProperties": true,
+  "properties": {
+    "balance": { "type": "number", "minimum": 0 },
+    "currency": { "type": "string", "const": "EUR" }
+  }
+}

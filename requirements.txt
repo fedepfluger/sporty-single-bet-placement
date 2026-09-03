@@ -1,0 +1,17 @@
+# Core test stack
+pytest==9.1.1
+selenium==4.48.0
+requests==2.34.2
+
+# Configuration & secrets
+python-dotenv==1.2.3
+
+# Assertions & validation
+jsonschema==4.26.0
+
+# Reporting
+allure-pytest==2.16.0
+
+# Execution helpers
+pytest-rerunfailures==16.6
+pytest-xdist==3.8.0

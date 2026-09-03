@@ -10,8 +10,9 @@ reports/
 allure-results/
 allure-report/
 screenshots/
+!docs/screenshots/
 *.png
-!docs/assets/*.png
+!docs/screenshots/*.png
 
 # Python
 __pycache__/

@@ -26,13 +26,9 @@ jobs:
       - run: cp .env.example .env
       - run: pre-commit run --all-files
 
-  test:
+  smoke:
     runs-on: ubuntu-latest
     needs: lint
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: [smoke, regression]
     env:
       # Never inline a credential here. These come from the repository secrets.
       USER_ID: ${{ secrets.USER_ID }}
@@ -52,21 +48,58 @@ jobs:
       # `.env.example` carries every non-secret required value. The secrets and
       # any repository variable set above win over it; an empty one does not.
       - run: cp .env.example .env
-      # The nightly job runs everything; pull requests only pay for the smoke gate.
-      - name: Run the ${{ matrix.suite }} suite
-        if: matrix.suite == 'smoke' || github.event_name == 'schedule'
-        run: pytest -m ${{ matrix.suite }} --reruns 1 --reruns-delay 2
+      - run: pytest -m smoke --reruns 1 --reruns-delay 2
 
       - name: Generate the Allure single-file report
-        if: always() && (matrix.suite == 'smoke' || github.event_name == 'schedule')
+        if: always()
         run: |
           npm install -g allure-commandline@2.43.0
           allure generate reports/allure-results --single-file -o reports/allure-report --clean
 
       - name: Publish the Allure report
-        if: always() && (matrix.suite == 'smoke' || github.event_name == 'schedule')
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: allure-report-${{ matrix.suite }}
+          name: allure-report-smoke
+          path: reports/allure-report/index.html
+          retention-days: 14
+
+  regression:
+    # Push and pull_request only pay for the smoke gate; the full matrix is a
+    # nightly cost. A job-level `if` skips provisioning a runner entirely -
+    # unlike a step-level skip, this job never checks out, installs Python,
+    # or installs Chrome on a push or a pull request.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    needs: lint
+    env:
+      USER_ID: ${{ secrets.USER_ID }}
+      BASE_URL: ${{ vars.BASE_URL }}
+      API_BASE_URL: ${{ vars.API_BASE_URL }}
+      HEADLESS: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: browser-actions/setup-chrome@v2
+        with:
+          chrome-version: stable
+      - run: pip install -r requirements.txt
+      - run: cp .env.example .env
+      - run: pytest -m regression --reruns 1 --reruns-delay 2
+
+      - name: Generate the Allure single-file report
+        if: always()
+        run: |
+          npm install -g allure-commandline@2.43.0
+          allure generate reports/allure-results --single-file -o reports/allure-report --clean
+
+      - name: Publish the Allure report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-report-regression
           path: reports/allure-report/index.html
           retention-days: 14
